@@ -17,19 +17,23 @@ export default function LoginForm() {
     setLoading(true);
     try {
       await signIn(email, password);
-      // Wait for profile to load
+      // Wait for profile to load with a timeout
+      let attempts = 0;
       const checkProfile = () => {
         const { profile } = useAuthStore.getState();
         if (profile) {
           navigate(profile.role === 'admin' ? '/admin' : '/chat');
-        } else {
+        } else if (attempts < 30) {
+          attempts++;
           setTimeout(checkProfile, 100);
+        } else {
+          // Profile didn't load, navigate based on default
+          navigate('/chat');
         }
       };
       checkProfile();
     } catch (err) {
       setError(err.message || 'Failed to sign in');
-    } finally {
       setLoading(false);
     }
   };

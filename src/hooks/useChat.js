@@ -7,22 +7,27 @@ export default function useChat() {
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const sessionIdRef = useRef(null);
+  const isTypingRef = useRef(false);
   const user = useAuthStore((s) => s.user);
 
   const createSession = useCallback(async () => {
     if (sessionIdRef.current || !user) return;
-    const { data, error } = await supabase
-      .from('chat_sessions')
-      .insert({ user_id: user.id, title: 'New Chat' })
-      .select('id')
-      .single();
-    if (!error && data) {
-      sessionIdRef.current = data.id;
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .insert({ user_id: user.id, title: 'New Chat' })
+        .select('id')
+        .single();
+      if (!error && data) {
+        sessionIdRef.current = data.id;
+      }
+    } catch (err) {
+      console.warn('Failed to create chat session:', err);
     }
   }, [user]);
 
   const sendMessage = useCallback(async (text) => {
-    if (!text.trim() || isTyping) return;
+    if (!text.trim() || isTypingRef.current) return;
 
     // Ensure session exists
     if (!sessionIdRef.current) {
@@ -30,53 +35,58 @@ export default function useChat() {
     }
 
     const userMessage = { role: 'user', content: text.trim(), created_at: new Date().toISOString() };
-    setMessages((prev) => [...prev, userMessage]);
 
-    // Save user message to Supabase
-    if (sessionIdRef.current) {
-      supabase.from('chat_messages').insert({
-        session_id: sessionIdRef.current,
-        role: 'user',
-        content: userMessage.content,
-      }).then();
-    }
+    setMessages((prev) => {
+      const updated = [...prev, userMessage];
 
-    setIsTyping(true);
-
-    try {
-      // Send last 20 messages for context
-      const history = [...messages, userMessage].slice(-20);
-      const aiResponse = await sendToGemini(history);
-
-      const assistantMessage = { role: 'assistant', content: aiResponse, created_at: new Date().toISOString() };
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      // Save assistant message to Supabase
+      // Save user message to Supabase (fire and forget)
       if (sessionIdRef.current) {
         supabase.from('chat_messages').insert({
           session_id: sessionIdRef.current,
-          role: 'assistant',
-          content: aiResponse,
+          role: 'user',
+          content: userMessage.content,
         }).then();
-
-        // Update message count
-        const newCount = messages.length + 2;
-        supabase.from('chat_sessions')
-          .update({ message_count: newCount })
-          .eq('id', sessionIdRef.current)
-          .then();
       }
-    } catch (err) {
-      const errorMessage = {
-        role: 'assistant',
-        content: 'Sorry, I\'m having trouble connecting right now. Please try again in a moment! ☕',
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsTyping(false);
-    }
-  }, [messages, isTyping, createSession]);
 
-  return { messages, isTyping, sendMessage, sessionId: sessionIdRef.current };
+      // Call Gemini with latest messages
+      isTypingRef.current = true;
+      setIsTyping(true);
+
+      const history = updated.slice(-20);
+      sendToGemini(history)
+        .then((aiResponse) => {
+          const assistantMessage = { role: 'assistant', content: aiResponse, created_at: new Date().toISOString() };
+          setMessages((prev2) => [...prev2, assistantMessage]);
+
+          // Save assistant message to Supabase
+          if (sessionIdRef.current) {
+            supabase.from('chat_messages').insert({
+              session_id: sessionIdRef.current,
+              role: 'assistant',
+              content: aiResponse,
+            }).then();
+
+            supabase.from('chat_sessions')
+              .update({ message_count: updated.length + 1 })
+              .eq('id', sessionIdRef.current)
+              .then();
+          }
+        })
+        .catch(() => {
+          setMessages((prev2) => [...prev2, {
+            role: 'assistant',
+            content: 'Sorry, I\'m having trouble connecting right now. Please try again in a moment! ☕',
+            created_at: new Date().toISOString(),
+          }]);
+        })
+        .finally(() => {
+          isTypingRef.current = false;
+          setIsTyping(false);
+        });
+
+      return updated;
+    });
+  }, [createSession]);
+
+  return { messages, isTyping, sendMessage };
 }
