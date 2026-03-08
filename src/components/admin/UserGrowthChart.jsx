@@ -9,29 +9,32 @@ export default function UserGrowthChart() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('created_at')
-        .order('created_at');
-
-      if (profiles) {
-        const grouped = {};
-        profiles.forEach((p) => {
-          const day = p.created_at.slice(0, 10);
-          if (!grouped[day]) grouped[day] = { day, count: 0 };
-          grouped[day].count += 1;
-        });
-
-        // Cumulative
-        const sorted = Object.values(grouped).sort((a, b) => a.day.localeCompare(b.day));
-        let cumulative = 0;
-        sorted.forEach((d) => {
-          cumulative += d.count;
-          d.total = cumulative;
-        });
-        setData(sorted);
+      try {
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('created_at')
+          .order('created_at');
+        if (error) throw error;
+        if (profiles) {
+          const grouped = {};
+          profiles.forEach((p) => {
+            const day = p.created_at.slice(0, 10);
+            if (!grouped[day]) grouped[day] = { day, count: 0 };
+            grouped[day].count += 1;
+          });
+          const sorted = Object.values(grouped).sort((a, b) => a.day.localeCompare(b.day));
+          let cumulative = 0;
+          sorted.forEach((d) => {
+            cumulative += d.count;
+            d.total = cumulative;
+          });
+          setData(sorted);
+        }
+      } catch (err) {
+        console.warn('UserGrowthChart fetch error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchData();
   }, []);

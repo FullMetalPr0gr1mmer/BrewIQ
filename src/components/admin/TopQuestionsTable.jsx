@@ -16,29 +16,34 @@ export default function TopQuestionsTable() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data: messages } = await supabase
-        .from('chat_messages')
-        .select('content')
-        .eq('role', 'user');
-
-      if (messages) {
-        const wordCounts = {};
-        messages.forEach((m) => {
-          const words = m.content.toLowerCase().split(/\s+/);
-          words.forEach((w) => {
-            const cleaned = w.replace(/[^a-z]/g, '');
-            if (cleaned.length > 3 && !STOP_WORDS.has(cleaned)) {
-              wordCounts[cleaned] = (wordCounts[cleaned] || 0) + 1;
-            }
+      try {
+        const { data: messages, error } = await supabase
+          .from('chat_messages')
+          .select('content')
+          .eq('role', 'user');
+        if (error) throw error;
+        if (messages) {
+          const wordCounts = {};
+          messages.forEach((m) => {
+            const words = m.content.toLowerCase().split(/\s+/);
+            words.forEach((w) => {
+              const cleaned = w.replace(/[^a-z]/g, '');
+              if (cleaned.length > 3 && !STOP_WORDS.has(cleaned)) {
+                wordCounts[cleaned] = (wordCounts[cleaned] || 0) + 1;
+              }
+            });
           });
-        });
-        const sorted = Object.entries(wordCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 15)
-          .map(([word, count], i) => ({ rank: i + 1, word, count }));
-        setData(sorted);
+          const sorted = Object.entries(wordCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 15)
+            .map(([word, count], i) => ({ rank: i + 1, word, count }));
+          setData(sorted);
+        }
+      } catch (err) {
+        console.warn('TopQuestionsTable fetch error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchData();
   }, []);

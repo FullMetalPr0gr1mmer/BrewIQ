@@ -30,23 +30,28 @@ export default function PeakHoursHeatmap() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('order_date');
-
-      if (orders) {
-        const counts = {};
-        let max = 0;
-        orders.forEach((o) => {
-          const d = new Date(o.order_date);
-          const key = `${d.getDay()}-${d.getHours()}`;
-          counts[key] = (counts[key] || 0) + 1;
-          if (counts[key] > max) max = counts[key];
-        });
-        setGrid(counts);
-        setMaxVal(max);
+      try {
+        const { data: orders, error } = await supabase
+          .from('orders')
+          .select('order_date');
+        if (error) throw error;
+        if (orders) {
+          const counts = {};
+          let max = 0;
+          orders.forEach((o) => {
+            const d = new Date(o.order_date);
+            const key = `${d.getDay()}-${d.getHours()}`;
+            counts[key] = (counts[key] || 0) + 1;
+            if (counts[key] > max) max = counts[key];
+          });
+          setGrid(counts);
+          setMaxVal(max);
+        }
+      } catch (err) {
+        console.warn('PeakHoursHeatmap fetch error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchData();
   }, []);

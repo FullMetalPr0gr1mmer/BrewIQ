@@ -11,21 +11,26 @@ export default function SatisfactionGauge() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('product_id, total_amount, products(name, category)');
-
-      if (orders) {
-        const grouped = {};
-        orders.forEach((o) => {
-          const name = o.products?.name || 'Unknown';
-          if (!grouped[name]) grouped[name] = { name, value: 0, revenue: 0 };
-          grouped[name].value += 1;
-          grouped[name].revenue += Number(o.total_amount);
-        });
-        setData(Object.values(grouped).sort((a, b) => b.value - a.value).slice(0, 7));
+      try {
+        const { data: orders, error } = await supabase
+          .from('orders')
+          .select('product_id, total_amount, products(name, category)');
+        if (error) throw error;
+        if (orders) {
+          const grouped = {};
+          orders.forEach((o) => {
+            const name = o.products?.name || 'Unknown';
+            if (!grouped[name]) grouped[name] = { name, value: 0, revenue: 0 };
+            grouped[name].value += 1;
+            grouped[name].revenue += Number(o.total_amount);
+          });
+          setData(Object.values(grouped).sort((a, b) => b.value - a.value).slice(0, 7));
+        }
+      } catch (err) {
+        console.warn('SatisfactionGauge fetch error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchData();
   }, []);

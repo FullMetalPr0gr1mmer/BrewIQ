@@ -16,27 +16,34 @@ export default function RevenueChart() {
 
   useEffect(() => {
     async function fetchData() {
-      setLoading(true);
-      const since = new Date();
-      since.setDate(since.getDate() - activePeriod);
+      try {
+        setLoading(true);
+        const since = new Date();
+        since.setDate(since.getDate() - activePeriod);
 
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('order_date, total_amount')
-        .gte('order_date', since.toISOString())
-        .order('order_date');
+        const { data: orders, error } = await supabase
+          .from('orders')
+          .select('order_date, total_amount')
+          .gte('order_date', since.toISOString())
+          .order('order_date');
 
-      if (orders) {
-        const grouped = {};
-        orders.forEach((o) => {
-          const day = o.order_date.slice(0, 10);
-          if (!grouped[day]) grouped[day] = { day, revenue: 0, orders: 0 };
-          grouped[day].revenue += Number(o.total_amount);
-          grouped[day].orders += 1;
-        });
-        setData(Object.values(grouped).sort((a, b) => a.day.localeCompare(b.day)));
+        if (error) throw error;
+
+        if (orders) {
+          const grouped = {};
+          orders.forEach((o) => {
+            const day = o.order_date.slice(0, 10);
+            if (!grouped[day]) grouped[day] = { day, revenue: 0, orders: 0 };
+            grouped[day].revenue += Number(o.total_amount);
+            grouped[day].orders += 1;
+          });
+          setData(Object.values(grouped).sort((a, b) => a.day.localeCompare(b.day)));
+        }
+      } catch (err) {
+        console.warn('RevenueChart fetch error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchData();
   }, [activePeriod]);

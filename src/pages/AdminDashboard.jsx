@@ -26,60 +26,40 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function fetchStats() {
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      const sixtyDaysAgo = new Date(now);
-      sixtyDaysAgo.setDate(now.getDate() - 60);
+      try {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+        const sixtyDaysAgo = new Date(now);
+        sixtyDaysAgo.setDate(now.getDate() - 60);
 
-      // Total orders
-      const { count: totalOrders } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true });
+        const [ordersRes, revenueRes, chatsRes, satRes, currentRes, priorRes] = await Promise.all([
+          supabase.from('orders').select('*', { count: 'exact', head: true }),
+          supabase.from('orders').select('total_amount'),
+          supabase.from('chat_sessions').select('*', { count: 'exact', head: true }),
+          supabase.from('chat_sessions').select('satisfaction_rating').not('satisfaction_rating', 'is', null),
+          supabase.from('orders').select('*', { count: 'exact', head: true }).gte('order_date', thirtyDaysAgo.toISOString()),
+          supabase.from('orders').select('*', { count: 'exact', head: true }).gte('order_date', sixtyDaysAgo.toISOString()).lt('order_date', thirtyDaysAgo.toISOString()),
+        ]);
 
-      // Total revenue
-      const { data: revenueData } = await supabase
-        .from('orders')
-        .select('total_amount');
-      const totalRevenue = revenueData?.reduce((sum, o) => sum + Number(o.total_amount), 0) || 0;
+        const totalRevenue = revenueRes.data?.reduce((sum, o) => sum + Number(o.total_amount), 0) || 0;
+        const avgSatisfaction = satRes.data?.length
+          ? (satRes.data.reduce((sum, s) => sum + s.satisfaction_rating, 0) / satRes.data.length).toFixed(1)
+          : 0;
+        const orderChange = priorRes.count ? Math.round(((currentRes.count - priorRes.count) / priorRes.count) * 100) : 0;
 
-      // Chat sessions
-      const { count: totalChats } = await supabase
-        .from('chat_sessions')
-        .select('*', { count: 'exact', head: true });
-
-      // Avg satisfaction
-      const { data: satData } = await supabase
-        .from('chat_sessions')
-        .select('satisfaction_rating')
-        .not('satisfaction_rating', 'is', null);
-      const avgSatisfaction = satData?.length
-        ? (satData.reduce((sum, s) => sum + s.satisfaction_rating, 0) / satData.length).toFixed(1)
-        : 0;
-
-      // Period changes (current 30 days vs prior 30 days)
-      const { count: currentOrders } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .gte('order_date', thirtyDaysAgo.toISOString());
-
-      const { count: priorOrders } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .gte('order_date', sixtyDaysAgo.toISOString())
-        .lt('order_date', thirtyDaysAgo.toISOString());
-
-      const orderChange = priorOrders ? Math.round(((currentOrders - priorOrders) / priorOrders) * 100) : 0;
-
-      setStats({
-        totalOrders: totalOrders || 0,
-        totalRevenue: Math.round(totalRevenue),
-        totalChats: totalChats || 0,
-        avgSatisfaction: Number(avgSatisfaction),
-        orderChange,
-        chatChange: 28,
-        revenueChange: 15,
-      });
+        setStats({
+          totalOrders: ordersRes.count || 0,
+          totalRevenue: Math.round(totalRevenue),
+          totalChats: chatsRes.count || 0,
+          avgSatisfaction: Number(avgSatisfaction),
+          orderChange,
+          chatChange: 28,
+          revenueChange: 15,
+        });
+      } catch (err) {
+        console.warn('Dashboard stats error:', err);
+      }
     }
     fetchStats();
   }, []);

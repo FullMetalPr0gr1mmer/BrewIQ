@@ -20,17 +20,23 @@ export default function ChatLogViewer() {
 
   async function fetchSessions() {
     setLoading(true);
-    let query = supabase
-      .from('chat_sessions')
-      .select('*, profiles(email, full_name)')
-      .order('started_at', { ascending: false });
+    try {
+      let query = supabase
+        .from('chat_sessions')
+        .select('*, profiles(email, full_name)')
+        .order('started_at', { ascending: false });
 
-    if (dateFrom) query = query.gte('started_at', dateFrom);
-    if (dateTo) query = query.lte('started_at', dateTo + 'T23:59:59');
+      if (dateFrom) query = query.gte('started_at', dateFrom);
+      if (dateTo) query = query.lte('started_at', dateTo + 'T23:59:59');
 
-    const { data } = await query;
-    setSessions(data || []);
-    setLoading(false);
+      const { data, error } = await query;
+      if (error) throw error;
+      setSessions(data || []);
+    } catch (err) {
+      console.warn('ChatLogViewer fetchSessions error:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function toggleExpand(sessionId) {
@@ -40,41 +46,49 @@ export default function ChatLogViewer() {
       return;
     }
     setExpandedId(sessionId);
-    const { data } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('created_at');
-    setExpandedMessages(data || []);
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at');
+      if (error) throw error;
+      setExpandedMessages(data || []);
+    } catch (err) {
+      console.warn('ChatLogViewer toggleExpand error:', err);
+      setExpandedMessages([]);
+    }
   }
 
   async function handleExport() {
     setExporting(true);
-    // Fetch all messages for filtered sessions
-    const sessionIds = sessions.map((s) => s.id);
-    if (sessionIds.length === 0) {
+    try {
+      const sessionIds = sessions.map((s) => s.id);
+      if (sessionIds.length === 0) return;
+
+      const { data: messages, error } = await supabase
+        .from('chat_messages')
+        .select('*, chat_sessions(satisfaction_rating, profiles(email))')
+        .in('session_id', sessionIds)
+        .order('created_at');
+      if (error) throw error;
+
+      if (messages) {
+        const rows = messages.map((m) => ({
+          email: m.chat_sessions?.profiles?.email || 'N/A',
+          session_id: m.session_id,
+          role: m.role,
+          content: m.content,
+          created_at: m.created_at,
+          satisfaction_rating: m.chat_sessions?.satisfaction_rating,
+        }));
+        exportChatsToXLSX(rows);
+      }
+    } catch (err) {
+      console.warn('ChatLogViewer export error:', err);
+    } finally {
       setExporting(false);
-      return;
     }
-
-    const { data: messages } = await supabase
-      .from('chat_messages')
-      .select('*, chat_sessions(satisfaction_rating, profiles(email))')
-      .in('session_id', sessionIds)
-      .order('created_at');
-
-    if (messages) {
-      const rows = messages.map((m) => ({
-        email: m.chat_sessions?.profiles?.email || 'N/A',
-        session_id: m.session_id,
-        role: m.role,
-        content: m.content,
-        created_at: m.created_at,
-        satisfaction_rating: m.chat_sessions?.satisfaction_rating,
-      }));
-      exportChatsToXLSX(rows);
-    }
-    setExporting(false);
   }
 
   const filtered = sessions.filter((s) => {

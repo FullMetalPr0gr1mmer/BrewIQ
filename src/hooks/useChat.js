@@ -45,7 +45,7 @@ export default function useChat() {
           session_id: sessionIdRef.current,
           role: 'user',
           content: userMessage.content,
-        }).then();
+        }).then(({ error }) => { if (error) console.warn('Save user msg:', error.message); });
       }
 
       // Call Gemini with latest messages
@@ -64,12 +64,12 @@ export default function useChat() {
               session_id: sessionIdRef.current,
               role: 'assistant',
               content: aiResponse,
-            }).then();
+            }).then(({ error }) => { if (error) console.warn('Save AI msg:', error.message); });
 
             supabase.from('chat_sessions')
               .update({ message_count: updated.length + 1 })
               .eq('id', sessionIdRef.current)
-              .then();
+              .then(({ error }) => { if (error) console.warn('Update count:', error.message); });
           }
         })
         .catch(() => {

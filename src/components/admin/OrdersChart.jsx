@@ -9,21 +9,26 @@ export default function OrdersChart() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('shop_id, total_amount, coffee_shops(name)');
-
-      if (orders) {
-        const grouped = {};
-        orders.forEach((o) => {
-          const name = o.coffee_shops?.name || 'Unknown';
-          if (!grouped[name]) grouped[name] = { name, orders: 0, revenue: 0 };
-          grouped[name].orders += 1;
-          grouped[name].revenue += Number(o.total_amount);
-        });
-        setData(Object.values(grouped).sort((a, b) => b.orders - a.orders));
+      try {
+        const { data: orders, error } = await supabase
+          .from('orders')
+          .select('shop_id, total_amount, coffee_shops(name)');
+        if (error) throw error;
+        if (orders) {
+          const grouped = {};
+          orders.forEach((o) => {
+            const name = o.coffee_shops?.name || 'Unknown';
+            if (!grouped[name]) grouped[name] = { name, orders: 0, revenue: 0 };
+            grouped[name].orders += 1;
+            grouped[name].revenue += Number(o.total_amount);
+          });
+          setData(Object.values(grouped).sort((a, b) => b.orders - a.orders));
+        }
+      } catch (err) {
+        console.warn('OrdersChart fetch error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchData();
   }, []);

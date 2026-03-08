@@ -11,20 +11,23 @@ export default function StatCard({ title, value, change, icon: Icon, prefix = ''
       setDisplayValue(value);
       return;
     }
-    let start = 0;
+    let cancelled = false;
+    const start = 0;
     const end = value;
     const duration = 1000;
     const startTime = performance.now();
 
     const animate = (currentTime) => {
+      if (cancelled) return;
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3);
       setDisplayValue(Math.round(start + (end - start) * eased));
       if (progress < 1) requestAnimationFrame(animate);
     };
 
     requestAnimationFrame(animate);
+    return () => { cancelled = true; };
   }, [value]);
 
   const isPositive = change > 0;
