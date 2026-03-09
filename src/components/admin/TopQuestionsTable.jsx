@@ -41,6 +41,7 @@ export default function TopQuestionsTable() {
         }
       } catch (err) {
         console.warn('TopQuestionsTable fetch error:', err);
+        setData([]);
       } finally {
         setLoading(false);
       }

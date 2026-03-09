@@ -32,6 +32,7 @@ export default function UserGrowthChart() {
         }
       } catch (err) {
         console.warn('UserGrowthChart fetch error:', err);
+        setData([]);
       } finally {
         setLoading(false);
       }

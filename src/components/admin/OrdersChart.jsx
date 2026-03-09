@@ -26,6 +26,7 @@ export default function OrdersChart() {
         }
       } catch (err) {
         console.warn('OrdersChart fetch error:', err);
+        setData([]);
       } finally {
         setLoading(false);
       }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, UserPlus, Shield } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
@@ -14,6 +14,11 @@ export default function SignupForm() {
   const [loading, setLoading] = useState(false);
   const signUp = useAuthStore((s) => s.signUp);
   const navigate = useNavigate();
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    return () => { clearTimeout(timerRef.current); };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,7 +37,7 @@ export default function SignupForm() {
     try {
       await signUp(email, password, fullName, isAdmin ? 'admin' : 'user');
       setSuccess('Account created! You can now sign in.');
-      setTimeout(() => navigate('/login'), 2000);
+      timerRef.current = setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
       setError(err.message || 'Failed to create account');
     } finally {

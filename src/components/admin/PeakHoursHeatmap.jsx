@@ -49,6 +49,8 @@ export default function PeakHoursHeatmap() {
         }
       } catch (err) {
         console.warn('PeakHoursHeatmap fetch error:', err);
+        setGrid({});
+        setMaxVal(0);
       } finally {
         setLoading(false);
       }

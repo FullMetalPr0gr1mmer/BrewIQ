@@ -29,18 +29,17 @@ export default function RevenueChart() {
 
         if (error) throw error;
 
-        if (orders) {
-          const grouped = {};
-          orders.forEach((o) => {
-            const day = o.order_date.slice(0, 10);
-            if (!grouped[day]) grouped[day] = { day, revenue: 0, orders: 0 };
-            grouped[day].revenue += Number(o.total_amount);
-            grouped[day].orders += 1;
-          });
-          setData(Object.values(grouped).sort((a, b) => a.day.localeCompare(b.day)));
-        }
+        const grouped = {};
+        (orders || []).forEach((o) => {
+          const day = o.order_date.slice(0, 10);
+          if (!grouped[day]) grouped[day] = { day, revenue: 0, orders: 0 };
+          grouped[day].revenue += Number(o.total_amount);
+          grouped[day].orders += 1;
+        });
+        setData(Object.values(grouped).sort((a, b) => a.day.localeCompare(b.day)));
       } catch (err) {
         console.warn('RevenueChart fetch error:', err);
+        setData([]);
       } finally {
         setLoading(false);
       }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
@@ -10,6 +10,11 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const signIn = useAuthStore((s) => s.signIn);
   const navigate = useNavigate();
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    return () => { clearTimeout(timerRef.current); };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,17 +22,17 @@ export default function LoginForm() {
     setLoading(true);
     try {
       await signIn(email, password);
-      // Wait for profile to load with a timeout
       let attempts = 0;
       const checkProfile = () => {
         const { profile } = useAuthStore.getState();
         if (profile) {
+          setLoading(false);
           navigate(profile.role === 'admin' ? '/admin' : '/chat');
         } else if (attempts < 30) {
           attempts++;
-          setTimeout(checkProfile, 100);
+          timerRef.current = setTimeout(checkProfile, 100);
         } else {
-          // Profile didn't load, navigate based on default
+          setLoading(false);
           navigate('/chat');
         }
       };

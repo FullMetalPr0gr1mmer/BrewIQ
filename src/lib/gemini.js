@@ -56,6 +56,11 @@ export async function sendToGemini(messages) {
     throw new Error(`Gemini API error: ${response.status}`);
   }
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error('Failed to parse Gemini response');
+  }
   return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I couldn\'t process that. Try again!';
 }

@@ -42,6 +42,11 @@ export default function AdminDashboard() {
           supabase.from('orders').select('*', { count: 'exact', head: true }).gte('order_date', sixtyDaysAgo.toISOString()).lt('order_date', thirtyDaysAgo.toISOString()),
         ]);
 
+        // Log any per-query errors
+        for (const res of [ordersRes, revenueRes, chatsRes, satRes, currentRes, priorRes]) {
+          if (res.error) console.warn('Dashboard query error:', res.error.message);
+        }
+
         const totalRevenue = revenueRes.data?.reduce((sum, o) => sum + Number(o.total_amount), 0) || 0;
         const avgSatisfaction = satRes.data?.length
           ? (satRes.data.reduce((sum, s) => sum + s.satisfaction_rating, 0) / satRes.data.length).toFixed(1)

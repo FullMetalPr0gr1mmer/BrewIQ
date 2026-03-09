@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendToGemini } from '../lib/gemini';
 import useAuthStore from '../store/authStore';
@@ -8,7 +8,12 @@ export default function useChat() {
   const [isTyping, setIsTyping] = useState(false);
   const sessionIdRef = useRef(null);
   const isTypingRef = useRef(false);
+  const mountedRef = useRef(true);
   const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const createSession = useCallback(async () => {
     if (sessionIdRef.current || !user) return;
@@ -55,6 +60,7 @@ export default function useChat() {
       const history = updated.slice(-20);
       sendToGemini(history)
         .then((aiResponse) => {
+          if (!mountedRef.current) return;
           const assistantMessage = { role: 'assistant', content: aiResponse, created_at: new Date().toISOString() };
           setMessages((prev2) => [...prev2, assistantMessage]);
 
@@ -73,6 +79,7 @@ export default function useChat() {
           }
         })
         .catch(() => {
+          if (!mountedRef.current) return;
           setMessages((prev2) => [...prev2, {
             role: 'assistant',
             content: 'Sorry, I\'m having trouble connecting right now. Please try again in a moment! ☕',
@@ -81,7 +88,7 @@ export default function useChat() {
         })
         .finally(() => {
           isTypingRef.current = false;
-          setIsTyping(false);
+          if (mountedRef.current) setIsTyping(false);
         });
 
       return updated;

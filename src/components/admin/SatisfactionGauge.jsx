@@ -28,6 +28,7 @@ export default function SatisfactionGauge() {
         }
       } catch (err) {
         console.warn('SatisfactionGauge fetch error:', err);
+        setData([]);
       } finally {
         setLoading(false);
       }
